@@ -51,6 +51,7 @@ jobs:
         with:
           name: Chatsounds ${{ steps.version.outputs.version }}
           body_path: CHANGELOG.md
+          make_latest: false
           files: |
             neoforge/build/libs/chatsounds-forge-*.jar
             fabric/build/libs/chatsounds-fabric-*.jar
