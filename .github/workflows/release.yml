@@ -47,7 +47,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Chatsounds ${{ steps.version.outputs.version }}
-          generate_release_notes: true
+          body_path: CHANGELOG.md
           files: |
             neoforge/build/libs/chatsounds-neoforge-*.jar
             fabric/build/libs/chatsounds-fabric-*.jar
@@ -60,6 +60,7 @@ jobs:
           files: neoforge/build/libs/chatsounds-neoforge-*.jar
           name: Chatsounds ${{ steps.version.outputs.version }} (NeoForge)
           version: ${{ steps.version.outputs.version }}
+          changelog-file: CHANGELOG.md
           version-type: release
           loaders: neoforge
           game-versions: 1.21.1
@@ -74,6 +75,7 @@ jobs:
           files: fabric/build/libs/chatsounds-fabric-*.jar
           name: Chatsounds ${{ steps.version.outputs.version }} (Fabric)
           version: ${{ steps.version.outputs.version }}
+          changelog-file: CHANGELOG.md
           version-type: release
           loaders: fabric
           game-versions: 1.21.1
