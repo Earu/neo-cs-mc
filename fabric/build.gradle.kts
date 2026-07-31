@@ -28,6 +28,8 @@ dependencies {
     // DS jar-in-jars nashorn, but Loom drops nested jars from remapped deps in dev;
     // without a JS engine DS's DI chain crashes at the title screen.
     runtimeOnly("org.openjdk.nashorn:nashorn-core:15.4")
+    // Dev-only: Sound Physics Remastered in runClient to exercise its bridge.
+    modLocalRuntime("maven.modrinth:sound-physics-remastered:fabric-1.20.1-1.5.1")
 }
 
 loom {
