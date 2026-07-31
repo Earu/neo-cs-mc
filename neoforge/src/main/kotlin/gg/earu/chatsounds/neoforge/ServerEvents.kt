@@ -2,15 +2,14 @@ package gg.earu.chatsounds.neoforge
 
 import gg.earu.chatsounds.server.ChatsoundsServer
 import net.minecraft.server.level.ServerPlayer
-import net.neoforged.bus.api.SubscribeEvent
-import net.neoforged.neoforge.event.ServerChatEvent
-import net.neoforged.neoforge.event.entity.player.PlayerEvent
-import net.neoforged.neoforge.network.PacketDistributor
+import net.minecraftforge.event.ServerChatEvent
+import net.minecraftforge.event.entity.player.PlayerEvent
+import net.minecraftforge.eventbus.api.SubscribeEvent
 
 object ServerEvents {
     fun wire() {
-        ChatsoundsServer.sendToPlayer = { player, payload -> PacketDistributor.sendToPlayer(player, payload) }
-        ChatsoundsServer.canSendTo = { player, type -> player.connection.hasChannel(type) }
+        ChatsoundsServer.sendToPlayer = Payloads::sendToPlayer
+        ChatsoundsServer.canSendTo = Payloads::canSendTo
     }
 
     @SubscribeEvent

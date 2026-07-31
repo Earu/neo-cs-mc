@@ -16,9 +16,9 @@ import net.minecraft.sounds.SoundSource
  * inside DS and every environment calculation silently clears to dry).
  */
 class VoiceSoundInstance(private val params: VoiceParams) : SoundInstance {
-    private val location = ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "voice")
+    private val location = ResourceLocation(Chatsounds.MOD_ID, "voice")
     private val sound = Sound(
-        location,
+        location.toString(), // 1.20.1 Sound takes the path as a string
         net.minecraft.util.valueproviders.ConstantFloat.of(1f),
         net.minecraft.util.valueproviders.ConstantFloat.of(1f),
         1,

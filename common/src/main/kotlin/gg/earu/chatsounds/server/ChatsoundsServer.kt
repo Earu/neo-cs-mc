@@ -5,7 +5,6 @@ import gg.earu.chatsounds.data.RepoConfig
 import gg.earu.chatsounds.net.ChatsoundsPayloads
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
@@ -34,9 +33,9 @@ object ChatsoundsServer {
     @Volatile private var config = ServerConfigData()
     @Volatile private var repoConfigJson: String = ""
 
-    /** Wired by the loader module (PacketDistributor / ServerPlayNetworking). */
-    var sendToPlayer: (ServerPlayer, CustomPacketPayload) -> Unit = { _, _ -> }
-    var canSendTo: (ServerPlayer, CustomPacketPayload.Type<*>) -> Boolean = { _, _ -> false }
+    /** Wired by the loader module (SimpleChannel on Forge / ServerPlayNetworking on Fabric). */
+    var sendToPlayer: (ServerPlayer, ChatsoundsPayloads.Message) -> Unit = { _, _ -> }
+    var canSendTo: (ServerPlayer) -> Boolean = { _ -> false }
 
     fun loadConfig() {
         val dir = Chatsounds.platform.configDir
@@ -62,7 +61,7 @@ object ChatsoundsServer {
 
     fun onPlayerJoin(player: ServerPlayer) {
         if (repoConfigJson.isEmpty()) loadConfig()
-        if (canSendTo(player, ChatsoundsPayloads.RepoConfigPayload.TYPE)) {
+        if (canSendTo(player)) {
             sendToPlayer(player, ChatsoundsPayloads.RepoConfigPayload(repoConfigJson))
         }
     }
@@ -85,7 +84,7 @@ object ChatsoundsServer {
         for (listener in player.server.playerList.players) {
             if (listener.level().dimension() != player.level().dimension()) continue
             if (listener.distanceToSqr(player) > radiusSq) continue
-            if (!canSendTo(listener, ChatsoundsPayloads.RelayPayload.TYPE)) continue
+            if (!canSendTo(listener)) continue
             sendToPlayer(listener, payload)
         }
     }

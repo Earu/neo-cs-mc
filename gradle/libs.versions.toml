@@ -1,26 +1,28 @@
 [versions]
-minecraft = "1.21.1"
-neoforge = "21.1.247"
-neoform = "1.21.1-20240808.144430"
+minecraft = "1.20.1"
+# Forge 47 line for 1.20.1 (MDG legacyforge resolves net.minecraftforge:forge).
+forge = "1.20.1-47.4.22"
+# MDG legacy: vanilla-only via mcpVersion (no neoform before 1.20.2).
+mcp = "1.20.1"
 moddev = "2.0.143"
-kotlin = "2.4.0"
-# KFF 5.12.0 ships kotlin-stdlib 2.4.0, kotlinx-coroutines 1.11.0, kotlinx-serialization 1.11.0.
+kotlin = "2.2.21"
+# KFF 4.12.0 (the 1.20.1 forge line) ships kotlin-stdlib 2.2.21, coroutines 1.10.2, serialization 1.9.0.
 # The kotlinx versions below must track the KFF release so common compiles against what KFF provides at runtime.
-kff = "5.12.0"
-coroutines = "1.11.0"
-serialization = "1.11.0"
+kff = "4.12.0"
+coroutines = "1.10.2"
+serialization = "1.9.0"
 mixin = "0.8.7"
 mixinextras = "0.4.1"
 junit = "5.11.4"
 # Newest Loom line targeting the Gradle 8.14 plugin API (1.14+ requires Gradle 9).
 loom = "1.13.6"
 fabric-loader = "0.19.3"
-fabric-api = "0.116.15+1.21.1"
-# FLK bundles kotlin 2.4.10 / coroutines / serialization at runtime on Fabric.
-flk = "1.13.13+kotlin.2.4.10"
+fabric-api = "0.92.11+1.20.1"
+# FLK pinned to kotlin 2.2.21 to match KFF 4.12 (and Loom's metadata reader caps at 2.3).
+flk = "1.13.7+kotlin.2.2.21"
 
 [libraries]
-kff-neoforge = { module = "thedarkcolour:kotlinforforge-neoforge", version.ref = "kff" }
+kff-forge = { module = "thedarkcolour:kotlinforforge", version.ref = "kff" }
 kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 mixin = { module = "org.spongepowered:mixin", version.ref = "mixin" }

@@ -1,52 +1,36 @@
 package gg.earu.chatsounds.net
 
-import gg.earu.chatsounds.Chatsounds
-import io.netty.buffer.ByteBuf
-import net.minecraft.core.UUIDUtil
-import net.minecraft.network.codec.ByteBufCodecs
-import net.minecraft.network.codec.StreamCodec
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload
-import net.minecraft.resources.ResourceLocation
 import java.util.UUID
 
 /**
- * Wire format shared by every loader. All channels are OPTIONAL: vanilla clients/servers
- * interoperate untouched. Only text crosses the wire, never audio.
+ * Wire messages shared by every loader — plain data on this branch: 1.20.1 predates
+ * CustomPacketPayload/StreamCodec, so each loader module owns its own serialization
+ * (SimpleChannel on Forge, PacketByteBuf channels on Fabric). All channels are OPTIONAL:
+ * vanilla clients/servers interoperate untouched. Only text crosses the wire, never audio.
  */
 object ChatsoundsPayloads {
-    /** S->C: the server's repo_config.json — the client rebuilds its lists from it. */
-    class RepoConfigPayload(val json: String) : CustomPacketPayload {
-        companion object {
-            val TYPE = CustomPacketPayload.Type<RepoConfigPayload>(ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "repo_config"))
-            val CODEC: StreamCodec<ByteBuf, RepoConfigPayload> =
-                ByteBufCodecs.STRING_UTF8.map(::RepoConfigPayload) { it.json }
-        }
+    const val NAMESPACE = "chatsounds"
 
-        override fun type() = TYPE
+    sealed interface Message
+
+    /** S->C: the server's repo_config.json — the client rebuilds its lists from it. */
+    class RepoConfigPayload(val json: String) : Message {
+        companion object {
+            const val PATH = "repo_config"
+        }
     }
 
     /** S->C: a chat message to sound out, positioned at the sender. */
-    class RelayPayload(val sender: UUID, val text: String) : CustomPacketPayload {
+    class RelayPayload(val sender: UUID, val text: String) : Message {
         companion object {
-            val TYPE = CustomPacketPayload.Type<RelayPayload>(ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "relay"))
-            val CODEC: StreamCodec<ByteBuf, RelayPayload> = StreamCodec.composite(
-                UUIDUtil.STREAM_CODEC, RelayPayload::sender,
-                ByteBufCodecs.STRING_UTF8, RelayPayload::text,
-                ::RelayPayload,
-            )
+            const val PATH = "relay"
         }
-
-        override fun type() = TYPE
     }
 
     /** C->S: the saysound/broadcast command path. */
-    class SaySoundPayload(val text: String) : CustomPacketPayload {
+    class SaySoundPayload(val text: String) : Message {
         companion object {
-            val TYPE = CustomPacketPayload.Type<SaySoundPayload>(ResourceLocation.fromNamespaceAndPath(Chatsounds.MOD_ID, "saysound"))
-            val CODEC: StreamCodec<ByteBuf, SaySoundPayload> =
-                ByteBufCodecs.STRING_UTF8.map(::SaySoundPayload) { it.text }
+            const val PATH = "saysound"
         }
-
-        override fun type() = TYPE
     }
 }

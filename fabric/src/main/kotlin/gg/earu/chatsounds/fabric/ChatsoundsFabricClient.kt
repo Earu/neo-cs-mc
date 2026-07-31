@@ -50,12 +50,13 @@ class ChatsoundsFabricClient : ClientModInitializer {
     }
 
     private fun registerPayloadReceivers() {
-        ClientPlayNetworking.registerGlobalReceiver(ChatsoundsPayloads.RepoConfigPayload.TYPE) { payload, context ->
-            context.client().execute {
+        ClientPlayNetworking.registerGlobalReceiver(FabricChannels.REPO_CONFIG) { client, _, buf, _ ->
+            val json = buf.readUtf(FabricChannels.MAX_STR)
+            client.execute {
                 Chatsounds.logger.info("Received server repo config!")
                 IncomingChat.serverAuthoritative = true
                 try {
-                    DataLoader.repoConfig = RepoConfig.parse(payload.json)
+                    DataLoader.repoConfig = RepoConfig.parse(json)
                     DataLoader.compileLists()
                 } catch (e: Exception) {
                     Chatsounds.logger.error("Invalid server repo config: {}", e.message)
@@ -63,8 +64,10 @@ class ChatsoundsFabricClient : ClientModInitializer {
             }
         }
 
-        ClientPlayNetworking.registerGlobalReceiver(ChatsoundsPayloads.RelayPayload.TYPE) { payload, context ->
-            context.client().execute { IncomingChat.onRelay(payload.sender, payload.text) }
+        ClientPlayNetworking.registerGlobalReceiver(FabricChannels.RELAY) { client, _, buf, _ ->
+            val sender = buf.readUUID()
+            val text = buf.readUtf(FabricChannels.MAX_STR)
+            client.execute { IncomingChat.onRelay(sender, text) }
         }
     }
 
@@ -73,8 +76,10 @@ class ChatsoundsFabricClient : ClientModInitializer {
         // messages through the mod channel when the server has it (GMod saysound path),
         // otherwise fall back to the vanilla cap.
         ClientSendMessageEvents.ALLOW_CHAT.register { message ->
-            if (message.length > VANILLA_CHAT_LIMIT && ClientPlayNetworking.canSend(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
-                ClientPlayNetworking.send(ChatsoundsPayloads.SaySoundPayload(message))
+            if (message.length > VANILLA_CHAT_LIMIT && ClientPlayNetworking.canSend(FabricChannels.SAYSOUND)) {
+                val buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create()
+                buf.writeUtf(message, FabricChannels.MAX_STR)
+                ClientPlayNetworking.send(FabricChannels.SAYSOUND, buf)
                 false
             } else {
                 true

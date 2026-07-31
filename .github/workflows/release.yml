@@ -46,20 +46,20 @@ jobs:
           name: Chatsounds ${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: |
-            neoforge/build/libs/chatsounds-neoforge-*.jar
+            neoforge/build/libs/chatsounds-forge-*.jar
             fabric/build/libs/chatsounds-fabric-*.jar
 
-      - name: Publish NeoForge to Modrinth
+      - name: Publish Forge to Modrinth
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: ${{ secrets.MODRINTH_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: neoforge/build/libs/chatsounds-neoforge-*.jar
-          name: Chatsounds ${{ steps.version.outputs.version }} (NeoForge)
+          files: neoforge/build/libs/chatsounds-forge-*.jar
+          name: Chatsounds ${{ steps.version.outputs.version }} (Forge)
           version: ${{ steps.version.outputs.version }}
           version-type: release
-          loaders: neoforge
-          game-versions: 1.21.1
+          loaders: forge
+          game-versions: 1.20.1
           dependencies: |
             kotlin-for-forge(required)
 
@@ -73,7 +73,7 @@ jobs:
           version: ${{ steps.version.outputs.version }}
           version-type: release
           loaders: fabric
-          game-versions: 1.21.1
+          game-versions: 1.20.1
           dependencies: |
             fabric-api(required)
             fabric-language-kotlin(required)

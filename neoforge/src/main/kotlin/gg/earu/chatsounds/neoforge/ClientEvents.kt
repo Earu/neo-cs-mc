@@ -5,30 +5,41 @@ import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import gg.earu.chatsounds.ClientConfig
-import gg.earu.chatsounds.audio.AudioEngine
 import gg.earu.chatsounds.client.CompletionOverlay
 import gg.earu.chatsounds.client.IncomingChat
 import gg.earu.chatsounds.data.Blacklist
 import gg.earu.chatsounds.data.DataLoader
-import gg.earu.chatsounds.mixin.ChatScreenAccessor
 import gg.earu.chatsounds.net.ChatsoundsPayloads
 import gg.earu.chatsounds.playback.ChatsoundsPlayer
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
-import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket
-import net.neoforged.bus.api.EventPriority
-import net.neoforged.bus.api.SubscribeEvent
-import net.neoforged.neoforge.client.event.ClientChatReceivedEvent
-import net.neoforged.neoforge.client.event.ClientTickEvent
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent
-import net.neoforged.neoforge.client.event.ScreenEvent
+import net.minecraftforge.client.event.ClientChatEvent
+import net.minecraftforge.client.event.ClientChatReceivedEvent
+import net.minecraftforge.client.event.RegisterClientCommandsEvent
+import net.minecraftforge.client.event.ScreenEvent
+import net.minecraftforge.event.TickEvent
+import net.minecraftforge.eventbus.api.EventPriority
+import net.minecraftforge.eventbus.api.SubscribeEvent
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper
 import org.lwjgl.glfw.GLFW
 
 object ClientEvents {
+    /**
+     * ChatScreen#input via SRG-name reflection (f_95573_): 1.20.1 Forge mixins need SRG
+     * refmaps, which is not worth the tooling for a single accessor. ORH remaps to the
+     * runtime's names, so this works in mojmap dev and SRG production alike.
+     */
+    private fun chatInput(screen: ChatScreen): EditBox? = try {
+        ObfuscationReflectionHelper.getPrivateValue<EditBox, ChatScreen>(ChatScreen::class.java, screen, "f_95573_")
+    } catch (_: Throwable) {
+        null
+    }
+
     // ---- Incoming chat ----
 
     @SubscribeEvent(priority = EventPriority.LOW)
@@ -56,18 +67,18 @@ object ClientEvents {
     fun onScreenInit(event: ScreenEvent.Init.Post) {
         val screen = event.screen as? ChatScreen ?: return
         // Let long sound keys be typed/completed; the send path below handles transport.
-        (screen as ChatScreenAccessor).`chatsounds$getInput`().setMaxLength(LONG_MESSAGE_LIMIT)
+        chatInput(screen)?.setMaxLength(LONG_MESSAGE_LIMIT)
     }
 
     @SubscribeEvent
-    fun onOutgoingChat(event: net.neoforged.neoforge.client.event.ClientChatEvent) {
+    fun onOutgoingChat(event: ClientChatEvent) {
         val message = event.message
         if (message.length <= VANILLA_CHAT_LIMIT) return
         val connection = Minecraft.getInstance().connection ?: return
-        if (connection.hasChannel(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
+        if (Payloads.channel.isRemotePresent(connection.connection)) {
             // GMod saysound path: too long for vanilla chat, relay through the mod channel.
             event.isCanceled = true
-            connection.send(ServerboundCustomPayloadPacket(ChatsoundsPayloads.SaySoundPayload(message)))
+            Payloads.channel.sendToServer(ChatsoundsPayloads.SaySoundPayload(message))
         } else {
             // Vanilla server: the protocol physically cannot carry it; fall back to the cap.
             event.message = message.take(VANILLA_CHAT_LIMIT)
@@ -77,8 +88,10 @@ object ClientEvents {
     // ---- Tick ----
 
     @SubscribeEvent
-    fun onClientTick(@Suppress("UNUSED_PARAMETER") event: ClientTickEvent.Post) {
-        ChatsoundsPlayer.clientTick()
+    fun onClientTick(event: TickEvent.ClientTickEvent) {
+        if (event.phase == TickEvent.Phase.END) {
+            ChatsoundsPlayer.clientTick()
+        }
     }
 
     // ---- Completion UI ----
@@ -86,7 +99,7 @@ object ClientEvents {
     @SubscribeEvent
     fun onScreenRender(event: ScreenEvent.Render.Post) {
         val screen = event.screen as? ChatScreen ?: return
-        CompletionOverlay.pollInput((screen as ChatScreenAccessor).`chatsounds$getInput`().value)
+        chatInput(screen)?.let { CompletionOverlay.pollInput(it.value) }
         CompletionOverlay.render(event.guiGraphics, screen.height)
     }
 
@@ -95,7 +108,7 @@ object ClientEvents {
         val screen = event.screen as? ChatScreen ?: return
         if (event.keyCode != GLFW.GLFW_KEY_TAB) return
 
-        val input = (screen as ChatScreenAccessor).`chatsounds$getInput`()
+        val input = chatInput(screen) ?: return
         val window = Minecraft.getInstance().window.window
         val reverse = GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS ||
             GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS ||
