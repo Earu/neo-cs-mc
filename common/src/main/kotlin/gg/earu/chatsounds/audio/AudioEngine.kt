@@ -144,6 +144,17 @@ object AudioEngine {
     private fun runLoop() {
         Chatsounds.logger.info("Audio engine thread started")
         while (running) {
+            // The game tears its AL context down on shutdown and F3+T device reloads; AL
+            // calls without a context all fail with AL_INVALID_OPERATION. Exit quietly —
+            // the next played sound restarts the engine against the fresh context.
+            if (org.lwjgl.openal.ALC10.alcGetCurrentContext() == 0L) {
+                for (voice in voices) voice.finished = true
+                voices.clear()
+                pending.clear()
+                synchronized(this) { running = false }
+                Chatsounds.logger.info("OpenAL context gone; audio engine thread exiting")
+                return
+            }
             try {
                 tick()
             } catch (e: Throwable) {
