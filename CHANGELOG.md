@@ -1,0 +1,2 @@
+- Sound Physics Remastered support: chatsounds now get reverb and occlusion like every other sound (takes priority over Dynamic Surroundings when both are installed)
+- Fixed OpenAL error spam in the log when closing the game
