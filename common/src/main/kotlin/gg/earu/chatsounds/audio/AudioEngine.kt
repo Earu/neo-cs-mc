@@ -70,7 +70,8 @@ class Voice(
     internal var allQueued = false
     internal var initialized = false
 
-    // Dynamic Surroundings integration (reverb/occlusion), when that mod is present.
+    // Environmental audio integration (Sound Physics Remastered or Dynamic Surroundings).
+    internal var usesSoundPhysics = false
     internal var dsContext: Any? = null
     internal var dsCounter = 0
 
@@ -268,18 +269,29 @@ object AudioEngine {
             voice.finished = true
         }
 
-        // Dynamic Surroundings reverb bridge: EFX upload ~20x/s, environment re-raycast
-        // ~3x/s (DS's own cadences). Register once the voice is positioned (the first
-        // client tick raises the volume from 0).
+        // Environmental audio bridges. Sound Physics Remastered takes priority over
+        // Dynamic Surroundings (both drive the same EFX sends; applying both would fight).
+        // Engage once the voice is positioned (the first client tick raises volume from 0);
+        // re-evaluate ~3x/s so moving speakers stay correct.
         voice.dsCounter++
-        val ctx = voice.dsContext
-        if (ctx != null) {
-            if (voice.dsCounter % 10 == 0) gg.earu.chatsounds.client.compat.DsurroundBridge.tick(ctx)
-            if (voice.dsCounter % 70 == 0) gg.earu.chatsounds.client.compat.DsurroundBridge.calc(ctx)
-        } else if (voice.dsCounter % 10 == 0 && !p.relative && p.volume > 0f) {
-            voice.dsContext = gg.earu.chatsounds.client.compat.DsurroundBridge.register(
-                src, gg.earu.chatsounds.client.compat.VoiceSoundInstance(p)
-            )
+        if (voice.usesSoundPhysics) {
+            if (voice.dsCounter % 70 == 0) {
+                gg.earu.chatsounds.client.compat.SoundPhysicsBridge.process(src, p.x, p.y, p.z)
+            }
+        } else {
+            val ctx = voice.dsContext
+            if (ctx != null) {
+                if (voice.dsCounter % 10 == 0) gg.earu.chatsounds.client.compat.DsurroundBridge.tick(ctx)
+                if (voice.dsCounter % 70 == 0) gg.earu.chatsounds.client.compat.DsurroundBridge.calc(ctx)
+            } else if (voice.dsCounter % 10 == 0 && !p.relative && p.volume > 0f) {
+                if (gg.earu.chatsounds.client.compat.SoundPhysicsBridge.process(src, p.x, p.y, p.z)) {
+                    voice.usesSoundPhysics = true
+                } else {
+                    voice.dsContext = gg.earu.chatsounds.client.compat.DsurroundBridge.register(
+                        src, gg.earu.chatsounds.client.compat.VoiceSoundInstance(p)
+                    )
+                }
+            }
         }
     }
 
