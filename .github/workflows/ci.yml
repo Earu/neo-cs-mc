@@ -14,7 +14,10 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          # MDG legacy tooling for 1.20.1 additionally needs a Java 17 toolchain.
+          java-version: |
+            17
+            21
 
       - uses: gradle/actions/setup-gradle@v4
 
