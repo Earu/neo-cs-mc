@@ -1,2 +1,2 @@
-- Sound Physics Remastered support: chatsounds now get reverb and occlusion like every other sound (takes priority over Dynamic Surroundings when both are installed)
-- Fixed OpenAL error spam in the log when closing the game
+- Fixed chat autocomplete showing no suggestions for players who inverted the ';' prefix
+- Messages silenced by the ';' prefix no longer list suggestions
