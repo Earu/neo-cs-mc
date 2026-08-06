@@ -2,6 +2,7 @@ package gg.earu.chatsounds.client
 
 import gg.earu.chatsounds.ClientConfig
 import gg.earu.chatsounds.data.DataLoader
+import gg.earu.chatsounds.playback.ChatsoundsPlayer
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 
@@ -12,11 +13,27 @@ import net.minecraft.client.gui.GuiGraphics
 object CompletionOverlay {
     private var lastChatInput: String? = null
 
+    /** The ';' stripped off the input before completing, re-added to the Tab replacement. */
+    private var strippedPrefix = ""
+
     /** Call every chat-screen frame with the current input value before [render]. */
     fun pollInput(value: String) {
         if (value == lastChatInput) return
         lastChatInput = value
-        if (value.startsWith("/")) CompletionEngine.clear() else CompletionEngine.onTextChanged(value)
+        strippedPrefix = ""
+        if (value.startsWith("/")) {
+            CompletionEngine.clear()
+            return
+        }
+        // Same ';' gate as playback: silenced messages get no suggestions, and with
+        // invertPrefix the prefix is stripped so the trie sees the actual sound text.
+        val effective = ChatsoundsPlayer.effectiveText(value)
+        if (effective == null) {
+            CompletionEngine.clear()
+            return
+        }
+        strippedPrefix = value.substring(0, value.length - effective.length)
+        CompletionEngine.onTextChanged(effective)
     }
 
     fun render(graphics: GuiGraphics, screenHeight: Int) {
@@ -80,6 +97,6 @@ object CompletionOverlay {
         if (!ClientConfig.data.enabled) return null
         if (currentValue.startsWith("/")) return null // vanilla command completion owns Tab there
         if (CompletionEngine.suggestions.isEmpty()) return null
-        return CompletionEngine.cycle(reverse)?.also { lastChatInput = it }
+        return CompletionEngine.cycle(reverse)?.let { strippedPrefix + it }?.also { lastChatInput = it }
     }
 }
