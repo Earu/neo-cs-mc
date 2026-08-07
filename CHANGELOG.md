@@ -1,2 +1,1 @@
-- Fixed chat autocomplete showing no suggestions for players who inverted the ';' prefix
-- Messages silenced by the ';' prefix no longer list suggestions
+- Releases now also publish to CurseForge.
