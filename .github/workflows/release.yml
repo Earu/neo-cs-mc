@@ -1,6 +1,6 @@
 name: release
 
-# Tag a commit `vX.Y.Z` (or run manually) to build both loaders and publish to Modrinth.
+# Tag a commit `vX.Y.Z` (or run manually) to build both loaders and publish to Modrinth and CurseForge.
 #
 # Required repository settings:
 #   secrets.MODRINTH_TOKEN — a Modrinth PAT with "create versions" scope
@@ -53,11 +53,13 @@ jobs:
             neoforge/build/libs/chatsounds-neoforge-*.jar
             fabric/build/libs/chatsounds-fabric-*.jar
 
-      - name: Publish NeoForge to Modrinth
+      - name: Publish NeoForge to Modrinth and CurseForge
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: ${{ secrets.MODRINTH_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: ${{ secrets.CURSEFORGE_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: neoforge/build/libs/chatsounds-neoforge-*.jar
           name: Chatsounds ${{ steps.version.outputs.version }} (NeoForge)
           version: ${{ steps.version.outputs.version }}
@@ -68,11 +70,13 @@ jobs:
           dependencies: |
             kotlin-for-forge(required)
 
-      - name: Publish Fabric to Modrinth
+      - name: Publish Fabric to Modrinth and CurseForge
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: ${{ secrets.MODRINTH_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: ${{ secrets.CURSEFORGE_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: fabric/build/libs/chatsounds-fabric-*.jar
           name: Chatsounds ${{ steps.version.outputs.version }} (Fabric)
           version: ${{ steps.version.outputs.version }}
