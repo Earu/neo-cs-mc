@@ -1,6 +1,6 @@
-# neo-chatsounds (Minecraft Edition:tm:)
+# neo-chatsounds (The Popular Cube Game Edition:tm:)
 
-Memes ported into your own Minecraft free of charge.
+Memes ported into your own copy of the popular cube game free of charge.
 
 A Kotlin port of [neo-chatsounds](https://github.com/Earu/neo-chatsounds) for **Forge** and **Fabric** (MC 1.20.1; other branches: `1.21.11` (default), `1.21.1`).
 
