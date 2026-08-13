@@ -73,16 +73,19 @@ object ChatsoundsServer {
     }
 
     /**
-     * The saysound payload: the untruncated text of a chat message about to arrive on the
-     * same connection. Held until [handleMessage] sees its truncated twin; the chat message
-     * itself stays fully vanilla (signed, moderated, broadcast, logged).
+     * The saysound payload: the untruncated text of a chat message crossing on the same
+     * connection. Payload and chat message reach the server thread in either order, so
+     * whichever side completes the rendezvous relays; the chat message itself stays fully
+     * vanilla (signed, moderated, broadcast, logged).
      */
     fun handleLongMessage(player: ServerPlayer, text: String) {
         if (text.length >= STR_NETWORKING_LIMIT) {
             Chatsounds.logger.warn("Message too long: {} chars by {}", text.length, player.gameProfile.name)
             return
         }
-        pending.offer(player.uuid, text, System.nanoTime() / 1e9)
+        val ready = pending.offerFull(player.uuid, text, System.nanoTime() / 1e9) ?: return
+        Chatsounds.logger.info("Restored a trimmed chat message from {} to its full {} chars", player.gameProfile.name, ready.length)
+        relay(player, ready)
     }
 
     fun handleMessage(player: ServerPlayer, text: String) {
@@ -91,10 +94,23 @@ object ChatsoundsServer {
             return
         }
 
-        // A chat message vanilla trimmed swaps back to the full text for the relay.
-        @Suppress("NAME_SHADOWING")
-        val text = pending.take(player.uuid, text, System.nanoTime() / 1e9) ?: text
+        // null: bears the truncation signature, waiting for its payload (serverTick flushes).
+        val ready = pending.offerChat(player.uuid, text, System.nanoTime() / 1e9) ?: return
+        if (ready.length > text.length) {
+            Chatsounds.logger.info("Restored a trimmed chat message from {} to its full {} chars", player.gameProfile.name, ready.length)
+        }
+        relay(player, ready)
+    }
 
+    /** Call every server tick: releases chat messages whose payload never arrived. */
+    fun serverTick(server: net.minecraft.server.MinecraftServer) {
+        for (entry in pending.flush(System.nanoTime() / 1e9)) {
+            val player = server.playerList.getPlayer(entry.player) ?: continue
+            relay(player, entry.text)
+        }
+    }
+
+    private fun relay(player: ServerPlayer, text: String) {
         val exempt = config.exemptOps && player.hasPermissions(2)
         if (spam.isSpam(player.uuid, text, System.nanoTime() / 1e9, exempt)) return
 

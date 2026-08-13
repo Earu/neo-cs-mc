@@ -5,71 +5,108 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
+/**
+ * Payload and chat message reach the server thread in either order (observed both ways in
+ * practice), so the rendezvous must complete from whichever side arrives second.
+ */
 class PendingLongMessagesTest {
     private val player = UUID.randomUUID()
     private val other = UUID.randomUUID()
-    private val full = "a".repeat(256) + "bbb"
-    private val truncated = full.take(256)
+    private val full = "a".repeat(PendingLongMessages.VANILLA_CHAT_LIMIT) + "bbb"
+    private val truncated = full.take(PendingLongMessages.VANILLA_CHAT_LIMIT)
 
     @Test
-    fun `pairs the chat message with the text it was cut from`() {
+    fun `payload first, chat second pairs`() {
         val pending = PendingLongMessages()
-        pending.offer(player, full, now = 0.0)
-        assertEquals(full, pending.take(player, truncated, now = 0.1))
+        assertNull(pending.offerFull(player, full, now = 0.0))
+        assertEquals(full, pending.offerChat(player, truncated, now = 0.1))
     }
 
     @Test
-    fun `a pair is consumed once`() {
+    fun `chat first, payload second pairs`() {
         val pending = PendingLongMessages()
-        pending.offer(player, full, now = 0.0)
-        pending.take(player, truncated, now = 0.1)
-        assertNull(pending.take(player, truncated, now = 0.2))
+        assertNull(pending.offerChat(player, truncated, now = 0.0))
+        assertEquals(full, pending.offerFull(player, full, now = 0.1))
     }
 
     @Test
-    fun `an unrelated chat message does not claim the text`() {
+    fun `a short chat message passes straight through`() {
         val pending = PendingLongMessages()
-        pending.offer(player, full, now = 0.0)
-        assertNull(pending.take(player, "hello", now = 0.1))
+        assertEquals("hello", pending.offerChat(player, "hello", now = 0.0))
     }
 
     @Test
-    fun `a stale entry is dropped`() {
-        val pending = PendingLongMessages(ttlSeconds = 5.0)
-        pending.offer(player, full, now = 0.0)
-        assertNull(pending.take(player, truncated, now = 5.1))
+    fun `an unrelated chat message does not claim the payload`() {
+        val pending = PendingLongMessages()
+        pending.offerFull(player, full, now = 0.0)
+        assertEquals("hello", pending.offerChat(player, "hello", now = 0.1))
     }
 
     @Test
     fun `entries do not cross players`() {
         val pending = PendingLongMessages()
-        pending.offer(player, full, now = 0.0)
-        assertNull(pending.take(other, truncated, now = 0.1))
+        pending.offerFull(player, full, now = 0.0)
+        assertNull(pending.offerChat(other, truncated, now = 0.1))
     }
 
     @Test
-    fun `a newer message replaces the one still waiting`() {
-        val pending = PendingLongMessages()
-        val newer = "z".repeat(256) + "yy"
-        pending.offer(player, full, now = 0.0)
-        pending.offer(player, newer, now = 0.1)
-        assertEquals(newer, pending.take(player, newer.take(256), now = 0.2))
+    fun `a stale payload is not paired`() {
+        val pending = PendingLongMessages(ttlSeconds = 5.0)
+        pending.offerFull(player, full, now = 0.0)
+        assertNull(pending.offerChat(player, truncated, now = 5.1))
     }
 
     @Test
-    fun `leaving clears what was waiting`() {
+    fun `a waiting chat message is released truncated once its grace expires`() {
+        val pending = PendingLongMessages(graceSeconds = 1.0)
+        pending.offerChat(player, truncated, now = 0.0)
+        assertTrue(pending.flush(now = 0.5).isEmpty())
+        val flushed = pending.flush(now = 1.5)
+        assertEquals(1, flushed.size)
+        assertEquals(truncated, flushed.single().text)
+        assertEquals(player, flushed.single().player)
+    }
+
+    @Test
+    fun `a flushed chat message is not flushed twice`() {
+        val pending = PendingLongMessages(graceSeconds = 1.0)
+        pending.offerChat(player, truncated, now = 0.0)
+        pending.flush(now = 1.5)
+        assertTrue(pending.flush(now = 2.5).isEmpty())
+    }
+
+    @Test
+    fun `pairing consumes the waiting chat message before its flush`() {
+        val pending = PendingLongMessages(graceSeconds = 1.0)
+        pending.offerChat(player, truncated, now = 0.0)
+        assertEquals(full, pending.offerFull(player, full, now = 0.2))
+        assertTrue(pending.flush(now = 1.5).isEmpty())
+    }
+
+    @Test
+    fun `a chat message past its grace does not pair with a late payload`() {
+        val pending = PendingLongMessages(graceSeconds = 1.0)
+        pending.offerChat(player, truncated, now = 0.0)
+        assertNull(pending.offerFull(player, full, now = 1.5))
+    }
+
+    @Test
+    fun `a replaced waiting chat message is released rather than dropped`() {
         val pending = PendingLongMessages()
-        pending.offer(player, full, now = 0.0)
+        val second = "z".repeat(PendingLongMessages.VANILLA_CHAT_LIMIT)
+        pending.offerChat(player, truncated, now = 0.0)
+        assertEquals(truncated, pending.offerChat(player, second, now = 0.1))
+    }
+
+    @Test
+    fun `leaving clears both sides`() {
+        val pending = PendingLongMessages()
+        pending.offerFull(player, full, now = 0.0)
+        pending.offerChat(player, truncated, now = 0.1).let { /* paired */ }
+        pending.offerChat(player, truncated, now = 0.2)
         pending.forget(player)
-        assertNull(pending.take(player, truncated, now = 0.1))
-    }
-
-    @Test
-    fun `a chat message identical to the long text does not pair`() {
-        // Nothing was truncated, so there is no long half to substitute.
-        val pending = PendingLongMessages()
-        pending.offer(player, full, now = 0.0)
-        assertNull(pending.take(player, full, now = 0.1))
+        assertTrue(pending.flush(now = 5.0).isEmpty())
     }
 }

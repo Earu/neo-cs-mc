@@ -26,4 +26,11 @@ object ServerEvents {
     fun onServerChat(event: ServerChatEvent) {
         ChatsoundsServer.handleMessage(event.player, event.rawText)
     }
+
+    /** Flushes chat messages whose long-text payload never arrived. */
+    @SubscribeEvent
+    fun onServerTick(event: net.minecraftforge.event.TickEvent.ServerTickEvent) {
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return
+        net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer()?.let { ChatsoundsServer.serverTick(it) }
+    }
 }
