@@ -1,1 +1,3 @@
-- Releases now also publish to CurseForge.
+- Fixed Sound Physics Remastered support never engaging on Fabric: chatsounds get reverb and occlusion again
+- Fixed long sound keys being cut to 256 characters when sent
+- Long messages now show up in the chat log
