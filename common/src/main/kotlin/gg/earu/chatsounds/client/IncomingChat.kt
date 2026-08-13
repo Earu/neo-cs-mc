@@ -41,29 +41,22 @@ object IncomingChat {
         return null
     }
 
-    /** A relay payload from the modded server. */
+    /**
+     * A relay payload from the modded server: playback only. The chat message itself
+     * always arrives through the vanilla pipeline (trimmed to 256 when the sender's text
+     * was longer), so display is never this path's job.
+     */
     fun onRelay(sender: UUID, text: String) {
         AudioEngine.start()
-        // Past the vanilla cap the message can only have come through the mod channel, so
-        // vanilla chat never printed it. Shorter relays ride alongside the vanilla message
-        // and would double up, so only these get printed here.
-        if (text.length > OutgoingChat.VANILLA_CHAT_LIMIT) {
-            if (HideText.shouldHide(text)) hiddenNotice(sender)
-            else Minecraft.getInstance().gui.chat.addMessage(Component.literal("<${nameOf(sender)}> $text"))
-        }
         ChatsoundsPlayer.play(sender, text, isOwn = sender == Minecraft.getInstance().player?.uuid)
-    }
-
-    private fun nameOf(senderId: UUID?): String =
-        senderId?.let { Minecraft.getInstance().connection?.getPlayerInfo(it)?.profile?.name } ?: "?"
-
-    private fun hiddenNotice(senderId: UUID?) {
-        Minecraft.getInstance().gui.chat.addMessage(Component.literal("Hidden chatsounds message from ${nameOf(senderId)}"))
     }
 
     private fun process(text: String, senderId: UUID?, isOwn: Boolean, playHere: Boolean): Result {
         val hidden = HideText.shouldHide(text)
-        if (hidden) hiddenNotice(senderId)
+        if (hidden) {
+            val name = senderId?.let { Minecraft.getInstance().connection?.getPlayerInfo(it)?.profile?.name } ?: "?"
+            Minecraft.getInstance().gui.chat.addMessage(Component.literal("Hidden chatsounds message from $name"))
+        }
         if (playHere) {
             AudioEngine.start()
             ChatsoundsPlayer.play(senderId, text, isOwn)

@@ -1,12 +1,12 @@
 package gg.earu.chatsounds.client
 
-import net.minecraft.client.Minecraft
-
 /**
- * Outgoing long messages (GMod nets sound keys up to 60000 chars). Raising the chat box's
- * max length is only half the job: ChatScreen#handleChatInput trims to 256 before calling
- * ClientPacketListener#sendChat, which is where both loaders' outgoing-chat hooks live, so
- * the mod channel has to be taken from the screen itself. ChatScreenMixin calls in here.
+ * Outgoing long messages (GMod nets sound keys up to 60000 chars). The chat message itself
+ * always stays on the vanilla path: signed, moderated, broadcast, logged, and trimmed to
+ * 256 by ChatScreen#handleChatInput as usual. For text past the cap this sends the full
+ * version ahead on the mod channel; the server pairs it with the trimmed chat message that
+ * follows on the same connection ([PendingLongMessages]) and relays it for playback.
+ * ChatScreenMixin calls in here before vanilla trims, and never cancels anything.
  */
 object OutgoingChat {
     const val VANILLA_CHAT_LIMIT = 256
@@ -17,15 +17,14 @@ object OutgoingChat {
     var sendLong: ((String) -> Boolean)? = null
 
     /**
-     * Returns true when the message left through the mod channel and vanilla must not send
-     * it. Anything a vanilla server can carry stays on the vanilla path, commands included:
-     * only chat is relayed, and a truncated command is better than a silently dropped one.
+     * Ships the untruncated text ahead of the chat message. Normalized exactly like
+     * vanilla's normalizeChatMessage so the server can prefix-match the two. Commands and
+     * anything under the cap have nothing to pair; a server without the channel just gets
+     * the vanilla truncation, as before.
      */
-    fun intercept(rawText: String, addToHistory: Boolean): Boolean {
+    fun beforeChatSend(rawText: String) {
         val text = rawText.trim().replace(WHITESPACE, " ")
-        if (text.length <= VANILLA_CHAT_LIMIT || text.startsWith("/")) return false
-        if (sendLong?.invoke(text) != true) return false
-        if (addToHistory) Minecraft.getInstance().gui.chat.addRecentChat(text)
-        return true
+        if (text.length <= VANILLA_CHAT_LIMIT || text.startsWith("/")) return
+        sendLong?.invoke(text)
     }
 }
