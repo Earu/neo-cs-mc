@@ -8,6 +8,7 @@ import gg.earu.chatsounds.ClientConfig
 import gg.earu.chatsounds.audio.AudioEngine
 import gg.earu.chatsounds.client.CompletionOverlay
 import gg.earu.chatsounds.client.IncomingChat
+import gg.earu.chatsounds.client.OutgoingChat
 import gg.earu.chatsounds.data.Blacklist
 import gg.earu.chatsounds.data.DataLoader
 import gg.earu.chatsounds.data.RepoConfig
@@ -74,7 +75,18 @@ class ChatsoundsFabricClient : ClientModInitializer {
     private fun registerChatEvents() {
         // Vanilla chat caps at 256 chars; some sound keys are far longer. Route long
         // messages through the mod channel when the server has it (GMod saysound path),
-        // otherwise fall back to the vanilla cap.
+        // otherwise fall back to the vanilla cap. ChatScreen trims before this event ever
+        // fires, so the screen itself is handled by OutgoingChat; this covers the rest.
+        OutgoingChat.sendLong = { text ->
+            ClientPlayNetworking.canSend(FabricChannels.SAYSOUND).also { canSend ->
+                if (canSend) {
+                    val buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create()
+                    buf.writeUtf(text, FabricChannels.MAX_STR)
+                    ClientPlayNetworking.send(FabricChannels.SAYSOUND, buf)
+                }
+            }
+        }
+
         ClientSendMessageEvents.ALLOW_CHAT.register { message ->
             if (message.length > VANILLA_CHAT_LIMIT && ClientPlayNetworking.canSend(FabricChannels.SAYSOUND)) {
                 val buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create()

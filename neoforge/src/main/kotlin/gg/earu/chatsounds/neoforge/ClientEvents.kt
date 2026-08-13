@@ -7,6 +7,7 @@ import com.mojang.brigadier.context.CommandContext
 import gg.earu.chatsounds.ClientConfig
 import gg.earu.chatsounds.client.CompletionOverlay
 import gg.earu.chatsounds.client.IncomingChat
+import gg.earu.chatsounds.client.OutgoingChat
 import gg.earu.chatsounds.data.Blacklist
 import gg.earu.chatsounds.data.DataLoader
 import gg.earu.chatsounds.net.ChatsoundsPayloads
@@ -63,6 +64,19 @@ object ClientEvents {
     private const val VANILLA_CHAT_LIMIT = 256
     private const val LONG_MESSAGE_LIMIT = 60_000
 
+    /**
+     * ChatScreen trims to the vanilla cap before ClientChatEvent fires, so the screen's own
+     * send path goes through OutgoingChat instead; the event below still covers the rest.
+     */
+    fun wireLongMessages() {
+        OutgoingChat.sendLong = { text ->
+            val connection = Minecraft.getInstance().connection
+            val canSend = connection != null && Payloads.channel.isRemotePresent(connection.connection)
+            if (canSend) Payloads.channel.sendToServer(ChatsoundsPayloads.SaySoundPayload(text))
+            canSend
+        }
+    }
+
     @SubscribeEvent
     fun onScreenInit(event: ScreenEvent.Init.Post) {
         val screen = event.screen as? ChatScreen ?: return
@@ -106,6 +120,18 @@ object ClientEvents {
     @SubscribeEvent
     fun onScreenKeyPressed(event: ScreenEvent.KeyPressed.Pre) {
         val screen = event.screen as? ChatScreen ?: return
+
+        // Forge 1.20.1 carries no mixins (SRG refmaps), so the pre-trim send lives here:
+        // vanilla's handleChatInput cuts the message to 256 before ClientChatEvent fires.
+        if (event.keyCode == GLFW.GLFW_KEY_ENTER || event.keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            val value = chatInput(screen)?.value ?: return
+            if (OutgoingChat.intercept(value, addToHistory = true)) {
+                event.isCanceled = true
+                Minecraft.getInstance().setScreen(null)
+            }
+            return
+        }
+
         if (event.keyCode != GLFW.GLFW_KEY_TAB) return
 
         val input = chatInput(screen) ?: return
