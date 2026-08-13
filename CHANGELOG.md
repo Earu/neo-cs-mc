@@ -1,3 +1,1 @@
-- Fixed Sound Physics Remastered support never engaging on Fabric: chatsounds get reverb and occlusion again
-- Fixed long sound keys being cut to 256 characters when sent
-- Long messages now show up in the chat log
+- Long messages are now real chat messages: signed, visible to everyone (vanilla clients included), logged, and seen by moderation plugins. The full sound key still reaches modded players for playback.
