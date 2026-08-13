@@ -61,6 +61,13 @@ object ChatsoundsPlayer {
     private val activeSounds = CopyOnWriteArrayList<ActiveSound>()
 
     /**
+     * Bumped by every stop: playing contexts check it before starting each sound, so "sh"
+     * also kills what was queued (downloading, or waiting out an earlier sound's duration),
+     * not just the voices already audible.
+     */
+    private val stopEpoch = java.util.concurrent.atomic.AtomicInteger()
+
+    /**
      * The ';'-prefix gate: normally a leading ';' blocks chatsounds for a message;
      * with invertPrefix only ';'-prefixed messages play (prefix stripped). Returns the
      * text to parse, or null when the message should stay silent.
@@ -99,6 +106,7 @@ object ChatsoundsPlayer {
     }
 
     fun stopAll() {
+        stopEpoch.incrementAndGet()
         AudioEngine.stopAll()
     }
 
@@ -199,11 +207,15 @@ object ChatsoundsPlayer {
         // Downloads all fire immediately (bounded by the HTTP queue); playback walks in order.
         val downloads = queued.map { q -> q.variant?.let { v -> scope.async { SoundDownloader.ensure(v) } } }
 
+        var epoch = stopEpoch.get()
         for ((i, q) in queued.withIndex()) {
             if (q.node.key == "sh") {
                 if (shAllowed(isOwn)) stopAll()
+                // Our own sh must not kill the rest of THIS context ("sh gaben" plays gaben).
+                epoch = stopEpoch.get()
                 continue
             }
+            if (stopEpoch.get() != epoch) return // an sh landed while we were queued
             val variant = q.variant ?: continue
             val file = downloads[i]?.await() ?: continue
 
@@ -235,6 +247,7 @@ object ChatsoundsPlayer {
                 continue
             }
 
+            if (stopEpoch.get() != epoch) return // an sh landed during download/decode
             val voice = AudioEngine.play(clip, params, dsp)
             stream.voice = voice
             activeSounds.add(ActiveSound(speakerId, params, voice, stream, q.node.modifiers))
