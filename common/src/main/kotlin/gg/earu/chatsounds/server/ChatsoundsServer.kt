@@ -29,6 +29,7 @@ object ChatsoundsServer {
 
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true; encodeDefaults = true }
     private val spam = SpamBucket()
+    private val pending = PendingLongMessages()
 
     @Volatile private var config = ServerConfigData()
     @Volatile private var repoConfigJson: String = ""
@@ -68,6 +69,20 @@ object ChatsoundsServer {
 
     fun onPlayerLeave(player: ServerPlayer) {
         spam.forget(player.uuid)
+        pending.forget(player.uuid)
+    }
+
+    /**
+     * The saysound payload: the untruncated text of a chat message about to arrive on the
+     * same connection. Held until [handleMessage] sees its truncated twin; the chat message
+     * itself stays fully vanilla (signed, moderated, broadcast, logged).
+     */
+    fun handleLongMessage(player: ServerPlayer, text: String) {
+        if (text.length >= STR_NETWORKING_LIMIT) {
+            Chatsounds.logger.warn("Message too long: {} chars by {}", text.length, player.gameProfile.name)
+            return
+        }
+        pending.offer(player.uuid, text, System.nanoTime() / 1e9)
     }
 
     fun handleMessage(player: ServerPlayer, text: String) {
@@ -75,6 +90,10 @@ object ChatsoundsServer {
             Chatsounds.logger.warn("Message too long: {} chars by {}", text.length, player.gameProfile.name)
             return
         }
+
+        // A chat message vanilla trimmed swaps back to the full text for the relay.
+        @Suppress("NAME_SHADOWING")
+        val text = pending.take(player.uuid, text, System.nanoTime() / 1e9) ?: text
 
         val exempt = config.exemptOps && player.hasPermissions(2)
         if (spam.isSpam(player.uuid, text, System.nanoTime() / 1e9, exempt)) return

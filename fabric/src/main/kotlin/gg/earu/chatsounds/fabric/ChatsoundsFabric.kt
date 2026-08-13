@@ -60,7 +60,7 @@ class ChatsoundsFabric : ModInitializer {
 
         ServerPlayNetworking.registerGlobalReceiver(FabricChannels.SAYSOUND) { server, player, _, buf, _ ->
             val text = buf.readUtf(FabricChannels.MAX_STR)
-            server.execute { ChatsoundsServer.handleMessage(player, text) }
+            server.execute { ChatsoundsServer.handleLongMessage(player, text) }
         }
 
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> ChatsoundsServer.onPlayerJoin(handler.player) }

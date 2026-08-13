@@ -68,7 +68,7 @@ object Payloads {
     private fun handleSaySound(msg: ChatsoundsPayloads.SaySoundPayload, ctx: Supplier<NetworkEvent.Context>) {
         val player = ctx.get().sender
         if (player != null) {
-            ctx.get().enqueueWork { gg.earu.chatsounds.server.ChatsoundsServer.handleMessage(player, msg.text) }
+            ctx.get().enqueueWork { gg.earu.chatsounds.server.ChatsoundsServer.handleLongMessage(player, msg.text) }
         }
         ctx.get().packetHandled = true
     }

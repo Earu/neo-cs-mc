@@ -19,7 +19,6 @@ import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
-import net.minecraftforge.client.event.ClientChatEvent
 import net.minecraftforge.client.event.ClientChatReceivedEvent
 import net.minecraftforge.client.event.RegisterClientCommandsEvent
 import net.minecraftforge.client.event.ScreenEvent
@@ -61,12 +60,11 @@ object ClientEvents {
     // ---- Outgoing chat: long sound keys ----
 
     /** Vanilla chat caps at 256 chars; some sound keys are far longer (GMod nets up to 60000). */
-    private const val VANILLA_CHAT_LIMIT = 256
     private const val LONG_MESSAGE_LIMIT = 60_000
 
     /**
-     * ChatScreen trims to the vanilla cap before ClientChatEvent fires, so the screen's own
-     * send path goes through OutgoingChat instead; the event below still covers the rest.
+     * Long sound keys: the full text rides ahead on the mod channel (OutgoingChat, called
+     * by the Enter handler below); the chat message stays fully vanilla.
      */
     fun wireLongMessages() {
         OutgoingChat.sendLong = { text ->
@@ -80,23 +78,8 @@ object ClientEvents {
     @SubscribeEvent
     fun onScreenInit(event: ScreenEvent.Init.Post) {
         val screen = event.screen as? ChatScreen ?: return
-        // Let long sound keys be typed/completed; the send path below handles transport.
+        // Let long sound keys be typed/completed; the send path handles transport.
         chatInput(screen)?.setMaxLength(LONG_MESSAGE_LIMIT)
-    }
-
-    @SubscribeEvent
-    fun onOutgoingChat(event: ClientChatEvent) {
-        val message = event.message
-        if (message.length <= VANILLA_CHAT_LIMIT) return
-        val connection = Minecraft.getInstance().connection ?: return
-        if (Payloads.channel.isRemotePresent(connection.connection)) {
-            // GMod saysound path: too long for vanilla chat, relay through the mod channel.
-            event.isCanceled = true
-            Payloads.channel.sendToServer(ChatsoundsPayloads.SaySoundPayload(message))
-        } else {
-            // Vanilla server: the protocol physically cannot carry it; fall back to the cap.
-            event.message = message.take(VANILLA_CHAT_LIMIT)
-        }
     }
 
     // ---- Tick ----
@@ -121,14 +104,11 @@ object ClientEvents {
     fun onScreenKeyPressed(event: ScreenEvent.KeyPressed.Pre) {
         val screen = event.screen as? ChatScreen ?: return
 
-        // Forge 1.20.1 carries no mixins (SRG refmaps), so the pre-trim send lives here:
-        // vanilla's handleChatInput cuts the message to 256 before ClientChatEvent fires.
+        // Forge 1.20.1 carries no mixins (SRG refmaps), so the pre-trim ship lives here:
+        // the full text rides ahead on the channel and vanilla then sends the chat message
+        // as usual, trimmed to 256. Nothing is cancelled.
         if (event.keyCode == GLFW.GLFW_KEY_ENTER || event.keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            val value = chatInput(screen)?.value ?: return
-            if (OutgoingChat.intercept(value, addToHistory = true)) {
-                event.isCanceled = true
-                Minecraft.getInstance().setScreen(null)
-            }
+            chatInput(screen)?.value?.let { OutgoingChat.beforeChatSend(it) }
             return
         }
 

@@ -4,21 +4,19 @@ import gg.earu.chatsounds.client.OutgoingChat
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
- * Only messages vanilla cannot carry take the mod channel. addToHistory stays false here:
- * the history call needs a running client, the routing decision does not.
+ * The full text ships on the mod channel only for messages vanilla will trim; the chat
+ * message itself is never touched, so there is no cancel/suppress decision to test.
  */
 class OutgoingChatTest {
     private var sent: String? = null
 
-    private fun acceptLong(accept: Boolean) {
+    init {
         OutgoingChat.sendLong = { text ->
             sent = text
-            accept
+            true
         }
     }
 
@@ -30,49 +28,46 @@ class OutgoingChatTest {
     private fun long(prefix: String = "") = prefix + "a".repeat(OutgoingChat.VANILLA_CHAT_LIMIT + 1)
 
     @Test
-    fun `short messages stay on the vanilla path`() {
-        acceptLong(true)
-        assertFalse(OutgoingChat.intercept("hello there", addToHistory = false))
+    fun `short messages ship nothing`() {
+        OutgoingChat.beforeChatSend("hello there")
         assertNull(sent)
     }
 
     @Test
-    fun `a message exactly at the cap stays on the vanilla path`() {
-        acceptLong(true)
-        assertFalse(OutgoingChat.intercept("a".repeat(OutgoingChat.VANILLA_CHAT_LIMIT), addToHistory = false))
+    fun `a message exactly at the cap ships nothing`() {
+        OutgoingChat.beforeChatSend("a".repeat(OutgoingChat.VANILLA_CHAT_LIMIT))
         assertNull(sent)
     }
 
     @Test
-    fun `long messages take the mod channel`() {
-        acceptLong(true)
-        assertTrue(OutgoingChat.intercept(long(), addToHistory = false))
+    fun `long messages ship the full text`() {
+        OutgoingChat.beforeChatSend(long())
         assertEquals(long(), sent)
     }
 
     @Test
-    fun `long commands stay on the vanilla path`() {
-        acceptLong(true)
-        assertFalse(OutgoingChat.intercept(long("/say "), addToHistory = false))
+    fun `long commands ship nothing`() {
+        OutgoingChat.beforeChatSend(long("/say "))
         assertNull(sent)
     }
 
     @Test
-    fun `a server without the channel keeps the vanilla path`() {
-        acceptLong(false)
-        assertFalse(OutgoingChat.intercept(long(), addToHistory = false))
-    }
-
-    @Test
-    fun `no loader hook keeps the vanilla path`() {
+    fun `no loader hook is a no-op`() {
         OutgoingChat.sendLong = null
-        assertFalse(OutgoingChat.intercept(long(), addToHistory = false))
+        OutgoingChat.beforeChatSend(long())
+        assertNull(sent)
     }
 
     @Test
-    fun `whitespace is collapsed like vanilla does before sending`() {
-        acceptLong(true)
-        assertTrue(OutgoingChat.intercept("  ${long()}\t\n  x  ", addToHistory = false))
+    fun `whitespace is collapsed like vanilla will before the prefix match`() {
+        OutgoingChat.beforeChatSend("  ${long()}\t\n  x  ")
         assertEquals("${long()} x", sent)
+    }
+
+    @Test
+    fun `text that only clears the cap before collapsing ships nothing`() {
+        // Vanilla's normalizeChatMessage collapses first, so this never gets trimmed.
+        OutgoingChat.beforeChatSend("a".repeat(250) + " ".repeat(20) + "b")
+        assertNull(sent)
     }
 }

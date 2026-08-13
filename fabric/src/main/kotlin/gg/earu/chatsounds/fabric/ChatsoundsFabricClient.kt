@@ -21,7 +21,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents
-import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents
@@ -33,7 +32,6 @@ import org.lwjgl.glfw.GLFW
 
 class ChatsoundsFabricClient : ClientModInitializer {
     private companion object {
-        const val VANILLA_CHAT_LIMIT = 256
         const val LONG_MESSAGE_LIMIT = 60_000
     }
 
@@ -73,10 +71,8 @@ class ChatsoundsFabricClient : ClientModInitializer {
     }
 
     private fun registerChatEvents() {
-        // Vanilla chat caps at 256 chars; some sound keys are far longer. Route long
-        // messages through the mod channel when the server has it (GMod saysound path),
-        // otherwise fall back to the vanilla cap. ChatScreen trims before this event ever
-        // fires, so the screen itself is handled by OutgoingChat; this covers the rest.
+        // Long sound keys: the full text rides ahead on the mod channel (OutgoingChat);
+        // the chat message itself stays on the vanilla path, trimmed to 256 as usual.
         OutgoingChat.sendLong = { text ->
             ClientPlayNetworking.canSend(FabricChannels.SAYSOUND).also { canSend ->
                 if (canSend) {
@@ -85,20 +81,6 @@ class ChatsoundsFabricClient : ClientModInitializer {
                     ClientPlayNetworking.send(FabricChannels.SAYSOUND, buf)
                 }
             }
-        }
-
-        ClientSendMessageEvents.ALLOW_CHAT.register { message ->
-            if (message.length > VANILLA_CHAT_LIMIT && ClientPlayNetworking.canSend(FabricChannels.SAYSOUND)) {
-                val buf = net.fabricmc.fabric.api.networking.v1.PacketByteBufs.create()
-                buf.writeUtf(message, FabricChannels.MAX_STR)
-                ClientPlayNetworking.send(FabricChannels.SAYSOUND, buf)
-                false
-            } else {
-                true
-            }
-        }
-        ClientSendMessageEvents.MODIFY_CHAT.register { message ->
-            if (message.length > VANILLA_CHAT_LIMIT) message.take(VANILLA_CHAT_LIMIT) else message
         }
 
         ClientReceiveMessageEvents.ALLOW_CHAT.register { message, signedMessage, sender, _, _ ->

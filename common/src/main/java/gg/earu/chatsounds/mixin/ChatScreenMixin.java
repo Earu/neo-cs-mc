@@ -8,16 +8,14 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Catches long messages before normalizeChatMessage trims them to 256. Both loaders' send
- * hooks sit further down in ClientPacketListener#sendChat, where the text has already lost
- * everything past the vanilla cap.
+ * Sees the message before normalizeChatMessage trims it to 256, so the full text can ride
+ * ahead on the mod channel. The vanilla send is never cancelled: the chat message goes out
+ * signed and truncated as usual, and the server pairs the two up.
  */
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin {
-    @Inject(method = "handleChatInput", at = @At("HEAD"), cancellable = true)
-    private void chatsounds$routeLongMessage(String text, boolean addToHistory, CallbackInfo ci) {
-        if (OutgoingChat.INSTANCE.intercept(text, addToHistory)) {
-            ci.cancel();
-        }
+    @Inject(method = "handleChatInput", at = @At("HEAD"))
+    private void chatsounds$shipFullText(String text, boolean addToHistory, CallbackInfo ci) {
+        OutgoingChat.INSTANCE.beforeChatSend(text);
     }
 }
