@@ -32,7 +32,7 @@ class ChatsoundsFabric : ModInitializer {
         ChatsoundsServer.canSendTo = { player, type -> ServerPlayNetworking.canSend(player, type) }
 
         ServerPlayNetworking.registerGlobalReceiver(ChatsoundsPayloads.SaySoundPayload.TYPE) { payload, context ->
-            context.server().execute { ChatsoundsServer.handleMessage(context.player(), payload.text) }
+            context.server().execute { ChatsoundsServer.handleLongMessage(context.player(), payload.text) }
         }
 
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> ChatsoundsServer.onPlayerJoin(handler.player) }

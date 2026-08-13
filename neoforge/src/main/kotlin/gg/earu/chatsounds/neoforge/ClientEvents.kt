@@ -50,12 +50,11 @@ object ClientEvents {
     // ---- Outgoing chat: long sound keys ----
 
     /** Vanilla chat caps at 256 chars; some sound keys are far longer (GMod nets up to 60000). */
-    private const val VANILLA_CHAT_LIMIT = 256
     private const val LONG_MESSAGE_LIMIT = 60_000
 
     /**
-     * ChatScreen trims to the vanilla cap before ClientChatEvent fires, so the screen's own
-     * send path goes through OutgoingChat instead; the event below still covers the rest.
+     * Long sound keys: the full text rides ahead on the mod channel (OutgoingChat, called
+     * by ChatScreenMixin before vanilla trims); the chat message stays fully vanilla.
      */
     fun wireLongMessages() {
         OutgoingChat.sendLong = { text ->
@@ -69,23 +68,8 @@ object ClientEvents {
     @SubscribeEvent
     fun onScreenInit(event: ScreenEvent.Init.Post) {
         val screen = event.screen as? ChatScreen ?: return
-        // Let long sound keys be typed/completed; the send path below handles transport.
+        // Let long sound keys be typed/completed; the send path handles transport.
         (screen as ChatScreenAccessor).`chatsounds$getInput`().setMaxLength(LONG_MESSAGE_LIMIT)
-    }
-
-    @SubscribeEvent
-    fun onOutgoingChat(event: net.neoforged.neoforge.client.event.ClientChatEvent) {
-        val message = event.message
-        if (message.length <= VANILLA_CHAT_LIMIT) return
-        val connection = Minecraft.getInstance().connection ?: return
-        if (connection.hasChannel(ChatsoundsPayloads.SaySoundPayload.TYPE)) {
-            // GMod saysound path: too long for vanilla chat, relay through the mod channel.
-            event.isCanceled = true
-            connection.send(ServerboundCustomPayloadPacket(ChatsoundsPayloads.SaySoundPayload(message)))
-        } else {
-            // Vanilla server: the protocol physically cannot carry it; fall back to the cap.
-            event.message = message.take(VANILLA_CHAT_LIMIT)
-        }
     }
 
     // ---- Tick ----
