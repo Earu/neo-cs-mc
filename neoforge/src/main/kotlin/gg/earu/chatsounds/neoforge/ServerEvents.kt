@@ -27,4 +27,10 @@ object ServerEvents {
     fun onServerChat(event: ServerChatEvent) {
         ChatsoundsServer.handleMessage(event.player, event.rawText)
     }
+
+    /** Flushes chat messages whose long-text payload never arrived. */
+    @SubscribeEvent
+    fun onServerTick(event: net.neoforged.neoforge.event.tick.ServerTickEvent.Post) {
+        ChatsoundsServer.serverTick(event.server)
+    }
 }
