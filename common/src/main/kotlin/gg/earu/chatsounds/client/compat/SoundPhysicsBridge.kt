@@ -3,6 +3,7 @@ package gg.earu.chatsounds.client.compat
 import gg.earu.chatsounds.Chatsounds
 import net.minecraft.sounds.SoundSource
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
 /**
  * Optional Sound Physics Remastered (sound_physics_remastered) integration. SPR exposes a
@@ -38,12 +39,7 @@ object SoundPhysicsBridge {
             } ?: error("no processSound(int, double, double, double, SoundSource, id) overload")
 
             // Build the sound-id instance from the declared parameter type, whatever era it is.
-            val idType = method.parameterTypes[5]
-            val idString = "${Chatsounds.MOD_ID}:voice"
-            soundId = runCatching { idType.getMethod("parse", String::class.java).invoke(null, idString) }
-                .recoverCatching { idType.getMethod("tryParse", String::class.java).invoke(null, idString)!! }
-                .recoverCatching { idType.getConstructor(String::class.java).newInstance(idString) }
-                .getOrThrow()
+            soundId = makeSoundId(method.parameterTypes[5], "${Chatsounds.MOD_ID}:voice")
 
             processSound = method
             resolved = true
@@ -54,6 +50,26 @@ object SoundPhysicsBridge {
             broken = true
             Chatsounds.logger.warn("Sound Physics Remastered found but its API changed; bridge disabled ({})", e.toString())
         }
+    }
+
+    /**
+     * Builds the id instance without ever naming a Minecraft method. Fabric runs on
+     * intermediary names in production (ResourceLocation.parse is method_60654 there) and
+     * loom does not rewrite reflection strings, so a by-name lookup only works in dev and
+     * on NeoForge. Instead take any static String -> id factory whose result round-trips
+     * to the id we asked for; the public constructor covers 1.20.1, which predates them.
+     */
+    internal fun makeSoundId(idType: Class<*>, idString: String): Any {
+        for (candidate in idType.methods) {
+            if (!Modifier.isStatic(candidate.modifiers)) continue
+            if (candidate.returnType != idType || candidate.parameterCount != 1) continue
+            if (candidate.parameterTypes[0] != String::class.java) continue
+            // Wrong-shaped factories (withDefaultNamespace and friends) throw on the ':'
+            // or hand back something that does not print as our id; both are skipped.
+            val made = runCatching { candidate.invoke(null, idString) }.getOrNull() ?: continue
+            if (made.toString() == idString) return made
+        }
+        return idType.getConstructor(String::class.java).newInstance(idString)
     }
 
     val present: Boolean
