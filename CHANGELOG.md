@@ -1,1 +1,2 @@
 - Long messages are now real chat messages: signed, visible to everyone (vanilla clients included), logged, and seen by moderation plugins. The full sound key still reaches modded players for playback.
+- "sh" now also stops sounds that were still queued, not just the ones already playing
