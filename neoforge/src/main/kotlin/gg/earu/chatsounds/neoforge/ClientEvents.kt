@@ -8,6 +8,7 @@ import gg.earu.chatsounds.ClientConfig
 import gg.earu.chatsounds.audio.AudioEngine
 import gg.earu.chatsounds.client.CompletionOverlay
 import gg.earu.chatsounds.client.IncomingChat
+import gg.earu.chatsounds.client.OutgoingChat
 import gg.earu.chatsounds.data.Blacklist
 import gg.earu.chatsounds.data.DataLoader
 import gg.earu.chatsounds.mixin.ChatScreenAccessor
@@ -51,6 +52,19 @@ object ClientEvents {
     /** Vanilla chat caps at 256 chars; some sound keys are far longer (GMod nets up to 60000). */
     private const val VANILLA_CHAT_LIMIT = 256
     private const val LONG_MESSAGE_LIMIT = 60_000
+
+    /**
+     * ChatScreen trims to the vanilla cap before ClientChatEvent fires, so the screen's own
+     * send path goes through OutgoingChat instead; the event below still covers the rest.
+     */
+    fun wireLongMessages() {
+        OutgoingChat.sendLong = { text ->
+            val connection = Minecraft.getInstance().connection
+            val canSend = connection != null && connection.hasChannel(ChatsoundsPayloads.SaySoundPayload.TYPE)
+            if (canSend) connection!!.send(ServerboundCustomPayloadPacket(ChatsoundsPayloads.SaySoundPayload(text)))
+            canSend
+        }
+    }
 
     @SubscribeEvent
     fun onScreenInit(event: ScreenEvent.Init.Post) {
