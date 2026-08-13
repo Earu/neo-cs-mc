@@ -6,6 +6,7 @@ import gg.earu.chatsounds.platform.Platform
 import gg.earu.chatsounds.server.ChatsoundsServer
 import net.fabricmc.api.EnvType
 import net.fabricmc.api.ModInitializer
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
@@ -41,5 +42,8 @@ class ChatsoundsFabric : ModInitializer {
         ServerMessageEvents.CHAT_MESSAGE.register { message, sender, _ ->
             ChatsoundsServer.handleMessage(sender, message.signedContent())
         }
+
+        // Flushes chat messages whose long-text payload never arrived.
+        ServerTickEvents.END_SERVER_TICK.register { server -> ChatsoundsServer.serverTick(server) }
     }
 }
