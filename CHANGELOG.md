@@ -1,3 +1,1 @@
-- Long messages are now real chat messages: signed, visible to everyone (vanilla clients included), logged, and seen by moderation plugins. The full sound key still reaches modded players for playback.
-- "sh" now also stops sounds that were still queued, not just the ones already playing
 - New /saysound command: plays chatsounds without sending a chat message. On servers running the mod everyone nearby hears it, with the usual hearing radius and spam control; elsewhere it plays for you alone. Tab completion works inside the command, and the ';' prefix rules do not apply to it.
