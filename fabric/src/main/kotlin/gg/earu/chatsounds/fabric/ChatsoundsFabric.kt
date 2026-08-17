@@ -28,12 +28,17 @@ class ChatsoundsFabric : ModInitializer {
         PayloadTypeRegistry.playS2C().register(ChatsoundsPayloads.RepoConfigPayload.TYPE, ChatsoundsPayloads.RepoConfigPayload.CODEC)
         PayloadTypeRegistry.playS2C().register(ChatsoundsPayloads.RelayPayload.TYPE, ChatsoundsPayloads.RelayPayload.CODEC)
         PayloadTypeRegistry.playC2S().register(ChatsoundsPayloads.SaySoundPayload.TYPE, ChatsoundsPayloads.SaySoundPayload.CODEC)
+        PayloadTypeRegistry.playC2S().register(ChatsoundsPayloads.SaySoundCmdPayload.TYPE, ChatsoundsPayloads.SaySoundCmdPayload.CODEC)
 
         ChatsoundsServer.sendToPlayer = { player, payload -> ServerPlayNetworking.send(player, payload) }
         ChatsoundsServer.canSendTo = { player, type -> ServerPlayNetworking.canSend(player, type) }
 
         ServerPlayNetworking.registerGlobalReceiver(ChatsoundsPayloads.SaySoundPayload.TYPE) { payload, context ->
             context.server().execute { ChatsoundsServer.handleLongMessage(context.player(), payload.text) }
+        }
+
+        ServerPlayNetworking.registerGlobalReceiver(ChatsoundsPayloads.SaySoundCmdPayload.TYPE) { payload, context ->
+            context.server().execute { ChatsoundsServer.handleSaySound(context.player(), payload.text) }
         }
 
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> ChatsoundsServer.onPlayerJoin(handler.player) }

@@ -9,6 +9,7 @@ import gg.earu.chatsounds.audio.AudioEngine
 import gg.earu.chatsounds.client.CompletionOverlay
 import gg.earu.chatsounds.client.IncomingChat
 import gg.earu.chatsounds.client.OutgoingChat
+import gg.earu.chatsounds.client.SaySoundCommand
 import gg.earu.chatsounds.data.Blacklist
 import gg.earu.chatsounds.data.DataLoader
 import gg.earu.chatsounds.mixin.ChatScreenAccessor
@@ -63,6 +64,14 @@ object ClientEvents {
             if (canSend) connection!!.send(ServerboundCustomPayloadPacket(ChatsoundsPayloads.SaySoundPayload(text)))
             canSend
         }
+
+        // No channel means a vanilla or older server: /saysound then plays locally only.
+        SaySoundCommand.sendToServer = { text ->
+            val connection = Minecraft.getInstance().connection
+            val canSend = connection != null && connection.hasChannel(ChatsoundsPayloads.SaySoundCmdPayload.TYPE)
+            if (canSend) connection!!.send(ServerboundCustomPayloadPacket(ChatsoundsPayloads.SaySoundCmdPayload(text)))
+            canSend
+        }
     }
 
     @SubscribeEvent
@@ -113,7 +122,17 @@ object ClientEvents {
             ctx.source.sendSystemMessage(Component.literal("[chatsounds] $message"))
         }
 
-        // No say/sh commands: typing triggers (and "sh") in chat IS the interface.
+        // Chatsounds without a chat message; "sh" as its text stops sounds like it does in chat.
+        event.dispatcher.register(
+            Commands.literal("saysound").then(
+                Commands.argument("text", StringArgumentType.greedyString()).executes { ctx ->
+                    val error = SaySoundCommand.run(StringArgumentType.getString(ctx, "text"))
+                    error?.let { feedback(ctx, it) }
+                    if (error == null) 1 else 0
+                }
+            )
+        )
+
         event.dispatcher.register(
             Commands.literal("chatsounds")
                 .then(Commands.literal("toggle").executes { ctx ->

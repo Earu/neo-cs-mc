@@ -39,12 +39,27 @@ object ChatsoundsPayloads {
         override fun type() = TYPE
     }
 
-    /** C->S: the saysound/broadcast command path. */
+    /** C->S: the untruncated text of a chat message, for the long-message rendezvous. */
     class SaySoundPayload(val text: String) : CustomPacketPayload {
         companion object {
             val TYPE = CustomPacketPayload.Type<SaySoundPayload>(Identifier.fromNamespaceAndPath(Chatsounds.MOD_ID, "saysound"))
             val CODEC: StreamCodec<ByteBuf, SaySoundPayload> =
                 ByteBufCodecs.STRING_UTF8.map(::SaySoundPayload) { it.text }
+        }
+
+        override fun type() = TYPE
+    }
+
+    /**
+     * C->S: the /saysound command. Its own channel (not [SaySoundPayload], which only ever
+     * completes a chat rendezvous) so that its absence also tells the client the server is
+     * vanilla or too old, and playback stays local.
+     */
+    class SaySoundCmdPayload(val text: String) : CustomPacketPayload {
+        companion object {
+            val TYPE = CustomPacketPayload.Type<SaySoundCmdPayload>(Identifier.fromNamespaceAndPath(Chatsounds.MOD_ID, "saysound_cmd"))
+            val CODEC: StreamCodec<ByteBuf, SaySoundCmdPayload> =
+                ByteBufCodecs.STRING_UTF8.map(::SaySoundCmdPayload) { it.text }
         }
 
         override fun type() = TYPE

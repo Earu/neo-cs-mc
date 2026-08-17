@@ -26,5 +26,10 @@ object Payloads {
             val player = context.player() as? ServerPlayer ?: return@playToServer
             context.enqueueWork { ChatsoundsServer.handleLongMessage(player, payload.text) }
         }
+
+        registrar.playToServer(ChatsoundsPayloads.SaySoundCmdPayload.TYPE, ChatsoundsPayloads.SaySoundCmdPayload.CODEC) { payload, context ->
+            val player = context.player() as? ServerPlayer ?: return@playToServer
+            context.enqueueWork { ChatsoundsServer.handleSaySound(player, payload.text) }
+        }
     }
 }
