@@ -83,11 +83,16 @@ object ChatsoundsPlayer {
 
     /** [isOwn]: whether the local player sent the message (sh-mode 1 gating). */
     fun play(speakerId: UUID?, text: String, isOwn: Boolean = speakerId == null) {
+        val effective = effectiveText(text) ?: return
+        playDirect(speakerId, effective, isOwn)
+    }
+
+    /** The /saysound path: skips the ';' prefix gate, but ';' still splits contexts. */
+    fun playDirect(speakerId: UUID?, text: String, isOwn: Boolean) {
         if (!enabled || !ClientConfig.data.enabled) return
         if (DataLoader.loading != null) return
-        val effective = effectiveText(text) ?: return
 
-        val lowered = effective.lowercase(Locale.ROOT)
+        val lowered = text.lowercase(Locale.ROOT)
         for (chunk in lowered.split(CONTEXT_SEPARATOR)) {
             scope.launch {
                 try {

@@ -9,6 +9,7 @@ import gg.earu.chatsounds.audio.AudioEngine
 import gg.earu.chatsounds.client.CompletionOverlay
 import gg.earu.chatsounds.client.IncomingChat
 import gg.earu.chatsounds.client.OutgoingChat
+import gg.earu.chatsounds.client.SaySoundCommand
 import gg.earu.chatsounds.data.Blacklist
 import gg.earu.chatsounds.data.DataLoader
 import gg.earu.chatsounds.data.RepoConfig
@@ -76,6 +77,13 @@ class ChatsoundsFabricClient : ClientModInitializer {
             }
         }
 
+        // No channel means a vanilla or older server: /saysound then plays locally only.
+        SaySoundCommand.sendToServer = { text ->
+            ClientPlayNetworking.canSend(ChatsoundsPayloads.SaySoundCmdPayload.TYPE).also { canSend ->
+                if (canSend) ClientPlayNetworking.send(ChatsoundsPayloads.SaySoundCmdPayload(text))
+            }
+        }
+
         ClientReceiveMessageEvents.ALLOW_CHAT.register { message, signedMessage, sender, _, _ ->
             val text = signedMessage?.signedContent() ?: message.string
             val senderId = sender?.id
@@ -131,7 +139,17 @@ class ChatsoundsFabricClient : ClientModInitializer {
                 source.sendFeedback(Component.literal("[chatsounds] $message"))
             }
 
-            // No say/sh commands: typing triggers (and "sh") in chat IS the interface.
+            // Chatsounds without a chat message; "sh" as its text stops sounds like it does in chat.
+            dispatcher.register(
+                ClientCommandManager.literal("saysound").then(
+                    ClientCommandManager.argument("text", StringArgumentType.greedyString()).executes { ctx ->
+                        val error = SaySoundCommand.run(StringArgumentType.getString(ctx, "text"))
+                        error?.let { feedback(ctx.source, it) }
+                        if (error == null) 1 else 0
+                    }
+                )
+            )
+
             dispatcher.register(
                 ClientCommandManager.literal("chatsounds")
                     .then(ClientCommandManager.literal("toggle").executes { ctx ->
