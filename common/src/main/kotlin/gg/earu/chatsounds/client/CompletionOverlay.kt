@@ -11,6 +11,9 @@ import net.minecraft.client.gui.GuiGraphics
  * layout flipped upward: selected first, wrap-around, separator before the wrapped head.
  */
 object CompletionOverlay {
+    /** The one command completing sound names; every other '/' input is vanilla's. */
+    private const val COMMAND_PREFIX = "/saysound "
+
     private var lastChatInput: String? = null
 
     /** The ';' stripped off the input before completing, re-added to the Tab replacement. */
@@ -22,7 +25,13 @@ object CompletionOverlay {
         lastChatInput = value
         strippedPrefix = ""
         if (value.startsWith("/")) {
-            CompletionEngine.clear()
+            if (!value.startsWith(COMMAND_PREFIX)) {
+                CompletionEngine.clear()
+                return
+            }
+            // The command bypasses the ';' gate, so suggestions bypass it too.
+            strippedPrefix = COMMAND_PREFIX
+            CompletionEngine.onTextChanged(value.removePrefix(COMMAND_PREFIX))
             return
         }
         // Same ';' gate as playback: silenced messages get no suggestions, and with
@@ -95,7 +104,8 @@ object CompletionOverlay {
     /** Tab pressed with [currentValue] in the box; returns the replacement text or null. */
     fun onTab(currentValue: String, reverse: Boolean): String? {
         if (!ClientConfig.data.enabled) return null
-        if (currentValue.startsWith("/")) return null // vanilla command completion owns Tab there
+        // Vanilla command completion owns Tab everywhere except our own command.
+        if (currentValue.startsWith("/") && !currentValue.startsWith(COMMAND_PREFIX)) return null
         if (CompletionEngine.suggestions.isEmpty()) return null
         return CompletionEngine.cycle(reverse)?.let { strippedPrefix + it }?.also { lastChatInput = it }
     }

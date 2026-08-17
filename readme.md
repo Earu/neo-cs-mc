@@ -20,6 +20,7 @@ Sound repos go in `config/chatsounds/repo_config.json`, see [repo_config.example
 
 | Command | Effect |
 |---|---|
+| `/saysound <text>` | plays it without sending a chat message (others hear it on modded servers) |
 | `/chatsounds toggle` / `volume <0-4>` / `hidetext` / `shmode <0-2>` / `invertprefix` | client settings |
 | `/chatsounds block/unblock sound <index> <key>` (or `realm`, `repository`) | blacklist |
 | `/chatsounds reload` / `reloadfull` / `clearcache` | maintenance |

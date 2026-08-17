@@ -24,6 +24,19 @@ object Payloads {
         .serverAcceptedVersions(NetworkRegistry.acceptMissingOr(PROTOCOL))
         .simpleChannel()
 
+    /**
+     * /saysound gets a channel of its own rather than another message id on [channel]:
+     * older servers already carry "main", so only a separate channel's absence can tell
+     * the client the server cannot broadcast the command, and an unknown message id would
+     * make those servers throw instead of ignoring it.
+     */
+    val saySoundChannel = NetworkRegistry.ChannelBuilder
+        .named(ResourceLocation(ChatsoundsPayloads.NAMESPACE, ChatsoundsPayloads.SaySoundCmdPayload.PATH))
+        .networkProtocolVersion { PROTOCOL }
+        .clientAcceptedVersions(NetworkRegistry.acceptMissingOr(PROTOCOL))
+        .serverAcceptedVersions(NetworkRegistry.acceptMissingOr(PROTOCOL))
+        .simpleChannel()
+
     fun register() {
         channel.registerMessage(
             0,
@@ -45,6 +58,13 @@ object Payloads {
             { msg, buf -> buf.writeUtf(msg.text, 65_536) },
             { buf -> ChatsoundsPayloads.SaySoundPayload(buf.readUtf(65_536)) },
             ::handleSaySound,
+        )
+        saySoundChannel.registerMessage(
+            0,
+            ChatsoundsPayloads.SaySoundCmdPayload::class.java,
+            { msg, buf -> buf.writeUtf(msg.text, 65_536) },
+            { buf -> ChatsoundsPayloads.SaySoundCmdPayload(buf.readUtf(65_536)) },
+            ::handleSaySoundCmd,
         )
     }
 
@@ -69,6 +89,14 @@ object Payloads {
         val player = ctx.get().sender
         if (player != null) {
             ctx.get().enqueueWork { gg.earu.chatsounds.server.ChatsoundsServer.handleLongMessage(player, msg.text) }
+        }
+        ctx.get().packetHandled = true
+    }
+
+    private fun handleSaySoundCmd(msg: ChatsoundsPayloads.SaySoundCmdPayload, ctx: Supplier<NetworkEvent.Context>) {
+        val player = ctx.get().sender
+        if (player != null) {
+            ctx.get().enqueueWork { gg.earu.chatsounds.server.ChatsoundsServer.handleSaySound(player, msg.text) }
         }
         ctx.get().packetHandled = true
     }

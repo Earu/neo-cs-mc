@@ -27,10 +27,21 @@ object ChatsoundsPayloads {
         }
     }
 
-    /** C->S: the saysound/broadcast command path. */
+    /** C->S: the untruncated text of a chat message, for the long-message rendezvous. */
     class SaySoundPayload(val text: String) : Message {
         companion object {
             const val PATH = "saysound"
+        }
+    }
+
+    /**
+     * C->S: the /saysound command. Its own channel (not [SaySoundPayload], which only ever
+     * completes a chat rendezvous) so that its absence also tells the client the server is
+     * vanilla or too old, and playback stays local.
+     */
+    class SaySoundCmdPayload(val text: String) : Message {
+        companion object {
+            const val PATH = "saysound_cmd"
         }
     }
 }

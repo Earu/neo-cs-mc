@@ -21,6 +21,7 @@ object FabricChannels {
     val REPO_CONFIG = ResourceLocation(ChatsoundsPayloads.NAMESPACE, ChatsoundsPayloads.RepoConfigPayload.PATH)
     val RELAY = ResourceLocation(ChatsoundsPayloads.NAMESPACE, ChatsoundsPayloads.RelayPayload.PATH)
     val SAYSOUND = ResourceLocation(ChatsoundsPayloads.NAMESPACE, ChatsoundsPayloads.SaySoundPayload.PATH)
+    val SAYSOUND_CMD = ResourceLocation(ChatsoundsPayloads.NAMESPACE, ChatsoundsPayloads.SaySoundCmdPayload.PATH)
 
     const val MAX_STR = 65_536
 
@@ -39,6 +40,10 @@ object FabricChannels {
             is ChatsoundsPayloads.SaySoundPayload -> {
                 buf.writeUtf(message.text, MAX_STR)
                 SAYSOUND
+            }
+            is ChatsoundsPayloads.SaySoundCmdPayload -> {
+                buf.writeUtf(message.text, MAX_STR)
+                SAYSOUND_CMD
             }
         }
         ServerPlayNetworking.send(player, channel, buf)
@@ -62,6 +67,11 @@ class ChatsoundsFabric : ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(FabricChannels.SAYSOUND) { server, player, _, buf, _ ->
             val text = buf.readUtf(FabricChannels.MAX_STR)
             server.execute { ChatsoundsServer.handleLongMessage(player, text) }
+        }
+
+        ServerPlayNetworking.registerGlobalReceiver(FabricChannels.SAYSOUND_CMD) { server, player, _, buf, _ ->
+            val text = buf.readUtf(FabricChannels.MAX_STR)
+            server.execute { ChatsoundsServer.handleSaySound(player, text) }
         }
 
         ServerPlayConnectionEvents.JOIN.register { handler, _, _ -> ChatsoundsServer.onPlayerJoin(handler.player) }

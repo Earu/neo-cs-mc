@@ -88,6 +88,19 @@ object ChatsoundsServer {
         relay(player, ready)
     }
 
+    /**
+     * The /saysound command: no chat message exists for it, so it relays on its own. The
+     * sender already played it locally (and unconditionally, whatever his prefix settings),
+     * so he is left out here.
+     */
+    fun handleSaySound(player: ServerPlayer, text: String) {
+        if (text.length >= STR_NETWORKING_LIMIT) {
+            Chatsounds.logger.warn("Message too long: {} chars by {}", text.length, player.gameProfile.name)
+            return
+        }
+        relay(player, text, includeSender = false)
+    }
+
     fun handleMessage(player: ServerPlayer, text: String) {
         if (text.length >= STR_NETWORKING_LIMIT) {
             Chatsounds.logger.warn("Message too long: {} chars by {}", text.length, player.gameProfile.name)
@@ -110,13 +123,14 @@ object ChatsoundsServer {
         }
     }
 
-    private fun relay(player: ServerPlayer, text: String) {
+    private fun relay(player: ServerPlayer, text: String, includeSender: Boolean = true) {
         val exempt = config.exemptOps && player.hasPermissions(2)
         if (spam.isSpam(player.uuid, text, System.nanoTime() / 1e9, exempt)) return
 
         val payload = ChatsoundsPayloads.RelayPayload(player.uuid, text)
         val radiusSq = config.radiusBlocks * config.radiusBlocks
         for (listener in player.server.playerList.players) {
+            if (!includeSender && listener === player) continue
             if (listener.level().dimension() != player.level().dimension()) continue
             if (listener.distanceToSqr(player) > radiusSq) continue
             if (!canSendTo(listener)) continue
